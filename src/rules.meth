@@ -1,0 +1,79 @@
+// Number Operations: +, -, *, /
+// Log Operation: |, &, !
+// Assignment: =
+// Comparison (for any type): ==, !=, >, <, >=, <=
+
+// 1- Declarations:
+int a;
+log b;
+str c = "initial value";
+non n;
+const int z = 5;
+
+// 2- Assignments:
+a = 1;
+b = true;
+c = "hello world";
+
+// 3- If-else:
+if (b) {
+    a = 0;
+} else {
+    c = "b is false";
+}
+print c;
+
+// 4- While:
+while (a < 3) {
+    a = a + 1;
+}
+
+// 5- Repeat-until:
+repeat {
+    a = a + 5;
+} until (a > 20);
+
+// 6- For-loop:
+for (int i = 0; i < 5; i = i + 1) {
+    a = a + i;
+}
+
+// 7- Switch:
+switch (a) {
+    case 20: {
+        b = true;
+    }
+    case 50: {
+        b = true;
+    }
+    default: {
+        c = "a is not 20 nor 50";
+    }
+}
+
+// 8- Block:
+{
+    log a;
+    a = true;
+    print a;
+}
+print a;
+
+// 9- Function:
+int add_one(int x) {
+    return x + 1;
+}
+a = add_one(a);
+print a;
+
+// 10- Enums:
+enum Meth [
+    Var1,
+    Var2
+];
+Meth x = Var1;
+Meth y = Var2;
+if (x == y) {
+    print z;
+}
+print x;

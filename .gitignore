@@ -1,0 +1,6 @@
+material
+src/methanol
+lex.yy.*
+parse.tab.*
+*.sym
+*.quad

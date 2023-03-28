@@ -1,0 +1,224 @@
+%{
+    #include <iostream>
+    #include <fstream>
+    #include "lib.hpp"
+    using namespace std;
+
+    // Functions needed by yacc.
+    extern int yylex();
+    void yyerror(string e) { /* Shut yacc up */ }
+
+    // Used for syntax error reporting.
+    extern int yylineno;
+    extern char* yytext;
+    int syntax_errors = 0;
+    #define log_syntax cerr << "STX(" << ++syntax_errors << "): Invalid syntax near '" << yytext << "' in line " << yylineno << endl
+
+    // Where the input is read from (file or stdin).
+    extern FILE* yyin;
+
+    // Controls the scope of variables.
+    int scope = 0;
+    #define enter_scope scope++;
+    #define leave_scope scope--;
+
+    // Output files.
+    string fout;
+    ofstream symlog;
+    ofstream quadout;
+    #define abort symlog.close(); symlog.open(fout + ".sym"); quadout.close(); quadout.open(fout + ".quad"); exit(1)
+%}
+
+%define api.value.type union
+%token <bool> LOGICAL
+%token <int> INTEGER
+%token <double> DOUBLE
+%token <char*> STRING
+%token <char*> IDENTIFIER
+
+%token ERROR
+%token NOT AND OR
+%token PLUS MINUS MULT DIV
+%token EQ NE LT GT LTE GTE
+%token PRINT IF ELSE WHILE FOR REPEAT UNTIL SWITCH CASE DEFAULT RETURN
+%token INTEGER_TYPE_DECLARATION DOUBLE_TYPE_DECLARATION LOGICAL_TYPE_DECLARATION
+%token STRING_TYPE_DECLARATION NONE_TYPE_DECLARATION ENUM_TYPE_DECLARATION CONSTANT
+
+%left AND OR
+%left EQ NE LT GT LTE GTE
+%left PLUS MINUS
+%left MULT DIV
+%right NOT
+
+%nonassoc UMINUS
+%nonassoc NOELSE
+%nonassoc ELSE
+
+%start program
+%%
+program: stmts
+    ;
+
+// Note: stmts can be empty.
+stmts:
+    | stmts stmt
+    ;
+
+stmt:
+      code_block
+    | assignment ';'
+    | declaration ';'
+    | function_declaration
+    | expr ';'
+    | RETURN expr ';'
+    | PRINT expr ';'
+    | if_stmt
+    | while_stmt
+    | for_stmt
+    | repeat_until_stmt
+    | switch_stmt
+    | ERROR { log_syntax; }
+    | ';'
+    ;
+
+code_block:
+      '{' { enter_scope } stmts '}' { leave_scope }
+    ;
+
+assignment:
+      IDENTIFIER '=' expr
+    ;
+
+type:
+      INTEGER_TYPE_DECLARATION
+    | DOUBLE_TYPE_DECLARATION
+    | LOGICAL_TYPE_DECLARATION
+    | STRING_TYPE_DECLARATION
+    | NONE_TYPE_DECLARATION
+    ;
+
+declaration:
+      type IDENTIFIER
+    | type IDENTIFIER '=' expr
+    // Note: A constant has to be assinged a value at declaration.
+    | CONSTANT type IDENTIFIER '=' expr
+    | ENUM_TYPE_DECLARATION IDENTIFIER '[' parameter_list ']'
+    // Declaration of an enum variable.
+    | IDENTIFIER IDENTIFIER '=' IDENTIFIER
+    ;
+
+function_declaration:
+      type IDENTIFIER '(' typed_parameter_list ')' code_block
+    ;
+
+typed_parameter_list:
+      typed_parameter_list ',' type IDENTIFIER
+    | type IDENTIFIER
+    ;
+
+parameter_list:
+      parameter_list ',' IDENTIFIER
+    | IDENTIFIER
+    ;
+
+expr:
+      IDENTIFIER
+    | INTEGER
+    | DOUBLE
+    | LOGICAL
+    | STRING
+    | function_invokation
+    | paren_expr
+    // The next set for expressions should operate only on numbers.
+    | MINUS expr %prec UMINUS
+    | expr PLUS expr
+    | expr MINUS expr
+    | expr MULT expr
+    | expr DIV expr
+    | expr LT expr
+    | expr GT expr
+    | expr LTE expr
+    | expr GTE expr
+    // The next set for expressions should operate on numbers and strings.
+    | expr EQ expr
+    | expr NE expr
+    // The next set for expressions should operate only on logicals.
+    | expr AND expr
+    | expr OR expr
+    | NOT expr
+    ;
+
+function_invokation:
+      IDENTIFIER '(' argument_list ')'
+    ;
+
+argument_list:
+      argument_list ',' expr
+    | expr
+    ;
+
+paren_expr:
+      '(' expr ')'
+    ;
+
+if_stmt:
+      IF paren_expr code_block %prec NOELSE
+    | IF paren_expr code_block ELSE code_block
+    ;
+
+while_stmt:
+      WHILE paren_expr code_block
+    ;
+
+for_stmt:
+      FOR '(' optional_declaration ';' expr ';' optional_assignment ')' code_block
+    ;
+
+optional_declaration:
+    | declaration
+    ;
+
+optional_assignment:
+    | assignment
+    ;
+
+repeat_until_stmt:
+      REPEAT code_block UNTIL paren_expr ';'
+    ;
+
+switch_stmt:
+    // Note: A switch statement has to have atleast one CASE branch.
+      SWITCH paren_expr '{' switch_branches switch_default_branch '}'
+    ;
+
+switch_branches:
+      switch_branches switch_case_branch
+    | switch_case_branch
+    ;
+
+switch_case_branch:
+      CASE expr ':' code_block
+    ;
+
+switch_default_branch:
+      DEFAULT ':' code_block
+    |
+    ;
+%%
+
+int main(int argc, char** argv) {
+    // Handle input and output files.
+    yyin = fopen(argv[1], "r");
+    fout = argv[1];
+    symlog.open(fout + ".sym");
+    quadout.open(fout + ".quad");
+
+    // Handle syntax errors.
+    if (yyparse()) log_syntax;
+    if (syntax_errors) {
+        cerr << "Found " << syntax_errors <<" syntax error(s)" <<endl;
+        abort;
+    }
+
+    // Check for semantic errors.
+}
