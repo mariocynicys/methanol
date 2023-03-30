@@ -84,9 +84,6 @@ struct TypeList
     }
 };
 
-// Symbol table: Access the scope first then the identifier by name.
-vector<map<string, struct Identifier *>> symtable(1);
-
 template <typename... Args>
 string format(const char *templ, Args... args)
 {
@@ -139,6 +136,9 @@ const char *token_name(yytokentype type)
         return "UNKNOWN";
     }
 }
+
+// Symbol table: Access the scope first then the identifier by name.
+vector<map<string, struct Identifier *>> symtable(1);
 
 // The computed value of an expression.
 union Value
@@ -661,4 +661,23 @@ void check_enum_contains_variant(string enum_type, string enum_variant)
         }
     while (scp--);
     semantic_error(format("Enum '%s' has not been declared before.", enum_type.c_str()));
+}
+
+// Stores a stack of function return types to check them against return statements.
+vector<pair<yytokentype, bool>> func_return_types_stack;
+void add_func_ret_type(yytokentype type) {
+    func_return_types_stack.push_back({type, false});
+}
+void validate_return_type(Expression *expr)
+{
+    yytokentype curr_ret_type = func_return_types_stack[func_return_types_stack.size() - 1].first;
+    if (curr_ret_type != expr->type)
+        semantic_error(format("Return type mismatch. Expected %s, got %s.", token_name(curr_ret_type), token_name(expr->type)))
+    func_return_types_stack[func_return_types_stack.size() - 1].second = true;
+}
+void check_return_included(string name) {
+    auto top = func_return_types_stack[func_return_types_stack.size() - 1];
+    func_return_types_stack.pop_back();
+    if (top.second == false)
+        semantic_warning(format("Function '%s' doesn't return anything.", name.c_str(), token_name(top.first)))
 }
