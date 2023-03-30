@@ -10,7 +10,6 @@
 "flt"     return DOUBLE_TYPE_DECLARATION;
 "log"     return LOGICAL_TYPE_DECLARATION;
 "str"     return STRING_TYPE_DECLARATION;
-"non"     return NONE_TYPE_DECLARATION;
 "enum"    return ENUM_TYPE_DECLARATION;
 "const"   return CONSTANT;
 
@@ -80,7 +79,7 @@ false {
 }
 
     /* Other known characters */
-[,;:=(){}[\]]       return *yytext;
+[\.,;:=(){}[\]]       return *yytext;
 
 
     /* Unknown characters */

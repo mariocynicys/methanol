@@ -1,4 +1,5 @@
 material
+.vscode
 src/methanol
 lex.yy.*
 parse.tab.*
