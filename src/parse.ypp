@@ -1,6 +1,5 @@
 %{
     #include <iostream>
-    #include <fstream>
     #include "lib.hpp"
     using namespace std;
 
@@ -8,25 +7,8 @@
     extern int yylex();
     void yyerror(string e) { /* Shut yacc up */ }
 
-    // Used for syntax error reporting.
-    extern int yylineno;
-    extern char* yytext;
-    int syntax_errors = 0;
-    #define log_syntax cerr << "STX(" << ++syntax_errors << "): Invalid syntax near '" << yytext << "' in line " << yylineno << endl
-
     // Where the input is read from (file or stdin).
     extern FILE* yyin;
-
-    // Controls the scope of variables.
-    int scope = 0;
-    #define enter_scope scope++;
-    #define leave_scope scope--;
-
-    // Output files.
-    string fout;
-    ofstream symlog;
-    ofstream quadout;
-    #define abort symlog.close(); symlog.open(fout + ".sym"); quadout.close(); quadout.open(fout + ".quad"); exit(1)
 %}
 
 %define api.value.type union
@@ -36,13 +18,18 @@
 %token <char*> STRING
 %token <char*> IDENTIFIER
 
+%type <yytokentype> type
+%type <struct Expression*> expr paren_expr function_invokation
+%type <struct StringList*> parameter_list
+%type <struct TypeList*> typed_parameter_list argument_list
+
 %token ERROR
 %token NOT AND OR
 %token PLUS MINUS MULT DIV
 %token EQ NE LT GT LTE GTE
 %token PRINT IF ELSE WHILE FOR REPEAT UNTIL SWITCH CASE DEFAULT RETURN
 %token INTEGER_TYPE_DECLARATION DOUBLE_TYPE_DECLARATION LOGICAL_TYPE_DECLARATION
-%token STRING_TYPE_DECLARATION NONE_TYPE_DECLARATION ENUM_TYPE_DECLARATION CONSTANT
+%token STRING_TYPE_DECLARATION ENUM_TYPE_DECLARATION CONSTANT
 
 %left AND OR
 %left EQ NE LT GT LTE GTE
@@ -71,13 +58,14 @@ stmt:
     | function_declaration
     | expr ';'
     | RETURN expr ';'
+    // Print is intentionally ignored.
     | PRINT expr ';'
     | if_stmt
     | while_stmt
     | for_stmt
     | repeat_until_stmt
     | switch_stmt
-    | ERROR { log_syntax; }
+    | ERROR { log_syntax }
     | ';'
     ;
 
@@ -86,79 +74,83 @@ code_block:
     ;
 
 assignment:
-      IDENTIFIER '=' expr
+      IDENTIFIER '=' expr           { assign_expr_to_identifier($3, $1); }
     ;
 
 type:
-      INTEGER_TYPE_DECLARATION
-    | DOUBLE_TYPE_DECLARATION
-    | LOGICAL_TYPE_DECLARATION
-    | STRING_TYPE_DECLARATION
-    | NONE_TYPE_DECLARATION
+      INTEGER_TYPE_DECLARATION      { $$ = INTEGER; }
+    | DOUBLE_TYPE_DECLARATION       { $$ = DOUBLE; }
+    | LOGICAL_TYPE_DECLARATION      { $$ = LOGICAL; }
+    | STRING_TYPE_DECLARATION       { $$ = STRING; }
     ;
 
 declaration:
-      type IDENTIFIER
-    | type IDENTIFIER '=' expr
+      type IDENTIFIER                                           { declare_identifier(var_identifier($2, $1)); }
+    | type IDENTIFIER '=' expr                                  { declare_identifier(var_identifier($2, $1)); assign_expr_to_identifier($4, $2); }
     // Note: A constant has to be assinged a value at declaration.
-    | CONSTANT type IDENTIFIER '=' expr
-    | ENUM_TYPE_DECLARATION IDENTIFIER '[' parameter_list ']'
-    // Declaration of an enum variable.
-    | IDENTIFIER IDENTIFIER '=' IDENTIFIER
-    ;
-
-function_declaration:
-      type IDENTIFIER '(' typed_parameter_list ')' code_block
-    ;
-
-typed_parameter_list:
-      typed_parameter_list ',' type IDENTIFIER
-    | type IDENTIFIER
+    | CONSTANT type IDENTIFIER '=' expr                         { declare_identifier(const_var_identifier($3, $2, $5->get_value())); }
+    | ENUM_TYPE_DECLARATION IDENTIFIER '[' parameter_list ']'   { declare_identifier(enum_typ_identifier($2, $4)); }
+    // Declaration of an enum variables.
+    // Note: We don't suppport enums being consts.
+    | IDENTIFIER IDENTIFIER                                     { declare_identifier(enum_var_identifier($2, $1)); }
+    | IDENTIFIER IDENTIFIER '=' expr                            { declare_identifier(enum_var_identifier($2, $1)); assign_expr_to_identifier($4, $2); }
     ;
 
 parameter_list:
-      parameter_list ',' IDENTIFIER
-    | IDENTIFIER
+      parameter_list ',' IDENTIFIER     { $$ = $1->append($3); }
+    | IDENTIFIER                        { $$ = new StringList($1); }
+    ;
+
+function_declaration:
+      // Note: We are creating a new scope for the function parameters.
+      type IDENTIFIER { enter_scope } '(' typed_parameter_list ')' code_block { leave_scope }           { declare_identifier(func_identifier($2, $1, $5)); }
+    ;
+
+typed_parameter_list:
+      typed_parameter_list ',' type IDENTIFIER      { $$ = $1->append($3); declare_identifier(var_identifier($4, $3)); }
+    | type IDENTIFIER                               { $$ = new TypeList($1); declare_identifier(var_identifier($2, $1)); }
     ;
 
 expr:
-      IDENTIFIER
-    | INTEGER
-    | DOUBLE
-    | LOGICAL
-    | STRING
-    | function_invokation
-    | paren_expr
+      IDENTIFIER                { $$ = get_expr_for_variable($1); }
+    | INTEGER                   { $$ = new Expression(INTEGER, true, Value($1)); }
+    | DOUBLE                    { $$ = new Expression(DOUBLE, true, Value($1)); }
+    | LOGICAL                   { $$ = new Expression(LOGICAL, true, Value($1)); }
+    | STRING                    { $$ = new Expression(STRING, true, Value($1)); }
+    // For enum expressions.
+    | IDENTIFIER '.' IDENTIFIER { check_enum_contains_variant($1, $3); $$ = new Expression($1); }
+    | function_invokation       { $$ = $1; }
+    | paren_expr                { $$ = $1; }
     // The next set for expressions should operate only on numbers.
-    | MINUS expr %prec UMINUS
-    | expr PLUS expr
-    | expr MINUS expr
-    | expr MULT expr
-    | expr DIV expr
-    | expr LT expr
-    | expr GT expr
-    | expr LTE expr
-    | expr GTE expr
+    | MINUS expr %prec UMINUS   { $$ = $2->neg(); }
+    | expr PLUS expr            { $$ = $1->oper($3, PLUS); }
+    | expr MINUS expr           { $$ = $1->oper($3, MINUS); }
+    | expr MULT expr            { $$ = $1->oper($3, MULT); }
+    | expr DIV expr             { $$ = $1->oper($3, DIV); }
+    | expr LT expr              { $$ = $1->oper($3, LT); }
+    | expr GT expr              { $$ = $1->oper($3, GT); }
+    | expr LTE expr             { $$ = $1->oper($3, LTE); }
+    | expr GTE expr             { $$ = $1->oper($3, GTE); }
     // The next set for expressions should operate on numbers and strings.
-    | expr EQ expr
-    | expr NE expr
+    | expr EQ expr              { $$ = $1->oper($3, EQ); }
+    | expr NE expr              { $$ = $1->oper($3, NE); }
     // The next set for expressions should operate only on logicals.
-    | expr AND expr
-    | expr OR expr
-    | NOT expr
+    | expr AND expr             { $$ = $1->oper($3, AND); }
+    | expr OR expr              { $$ = $1->oper($3, OR); }
+    | NOT expr                  { $$ = $2->complement(); }
     ;
 
 function_invokation:
-      IDENTIFIER '(' argument_list ')'
+      IDENTIFIER '(' argument_list ')'      { $$ = get_expr_for_func_invocation($1, $3); }
     ;
 
 argument_list:
-      argument_list ',' expr
-    | expr
+      argument_list ',' expr                { $$ = $1->append($3->type); }
+    | expr                                  { $$ = new TypeList($1->type); }
     ;
 
 paren_expr:
-      '(' expr ')'
+      '(' expr ')'                          { $$ = $2; }
     ;
 
 if_stmt:
@@ -171,7 +163,9 @@ while_stmt:
     ;
 
 for_stmt:
-      FOR '(' optional_declaration ';' expr ';' optional_assignment ')' code_block
+    // Note: We are creating a new scope here for the (optional) loop variable
+    // so it doesn't conflict with variables from the parent scope.
+      FOR { enter_scope } '(' optional_declaration ';' expr ';' optional_assignment ')' code_block { leave_scope }
     ;
 
 optional_declaration:
@@ -220,5 +214,6 @@ int main(int argc, char** argv) {
         abort;
     }
 
-    // Check for semantic errors.
+    // Semantic errors are checked for while parsing.
+    return 0;
 }

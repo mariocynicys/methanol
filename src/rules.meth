@@ -7,7 +7,6 @@
 int a;
 log b;
 str c = "initial value";
-non n;
 const int z = 5;
 
 // 2- Assignments:
@@ -71,8 +70,8 @@ enum Meth [
     Var1,
     Var2
 ];
-Meth x = Var1;
-Meth y = Var2;
+Meth x = Meth.Var1;
+Meth y = Meth.Var2;
 if (x == y) {
     print z;
 }
