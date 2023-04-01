@@ -20,8 +20,8 @@
 
 %type <yytokentype> type
 %type <struct Expression*> expr paren_expr function_invokation
-%type <struct StringList*> parameter_list
 %type <struct TypeList*> typed_parameter_list argument_list
+%type <struct StringList*> parameter_list
 
 %token ERROR
 %token NOT AND OR
@@ -43,12 +43,12 @@
 
 %start program
 %%
-program: stmts
+program: stmts                              { leave_scope(/* To trigger warning for unused variables in the global scope */); }
     ;
 
 // Note: stmts can be empty.
 stmts:
-    | stmts stmt
+    | stmts stmt                            { log_symtable(); }
     ;
 
 stmt:
@@ -57,6 +57,7 @@ stmt:
     | declaration ';'
     | function_declaration
     | expr ';'
+    // Note: We don't support type casting for return statements.
     | RETURN expr ';'               { validate_return_type($2); }
     // Print is intentionally ignored.
     | PRINT expr ';'
@@ -70,7 +71,7 @@ stmt:
     ;
 
 code_block:
-      '{' { enter_scope } stmts '}' { leave_scope }
+      '{' { enter_scope(); } stmts '}' { leave_scope(); }
     ;
 
 assignment:
@@ -104,12 +105,13 @@ parameter_list:
 function_declaration:
       // Note: We are creating a new scope for the function parameters.
       // Note: We don't support functions returning enums.
-      type IDENTIFIER { add_func_ret_type($1); enter_scope } '(' typed_parameter_list ')' code_block { leave_scope }           { declare_identifier(func_identifier($2, $1, $5)); check_return_included($2); }
+      type IDENTIFIER { push_func_ret_type($1); enter_scope(); } '(' typed_parameter_list ')' code_block { leave_scope(); }           { declare_identifier(func_identifier($2, $1, $5)); check_return_included($2); }
     ;
 
 typed_parameter_list:
-      typed_parameter_list ',' type IDENTIFIER      { $$ = $1->append($3); declare_identifier(var_identifier($4, $3)); }
-    | type IDENTIFIER                               { $$ = new TypeList($1); declare_identifier(var_identifier($2, $1)); }
+      typed_parameter_list ',' type IDENTIFIER      { $$ = $1->append($3); declare_identifier(func_param_identifier($4, $3)); }
+    | type IDENTIFIER                               { $$ = new TypeList($1); declare_identifier(func_param_identifier($2, $1)); }
+    |                                               { $$ = new TypeList(); }
     ;
 
 expr:
@@ -148,6 +150,7 @@ function_invokation:
 argument_list:
       argument_list ',' expr                { $$ = $1->append($3->type); }
     | expr                                  { $$ = new TypeList($1->type); }
+    |                                       { $$ = new TypeList(); }
     ;
 
 paren_expr:
@@ -155,18 +158,19 @@ paren_expr:
     ;
 
 if_stmt:
-      IF paren_expr code_block %prec NOELSE
-    | IF paren_expr code_block ELSE code_block
+      IF paren_expr code_block %prec NOELSE               { $2->warn_const_cond("If"); }
+    | IF paren_expr code_block ELSE code_block            { $2->warn_const_cond("If"); }
     ;
 
 while_stmt:
-      WHILE paren_expr code_block
+      WHILE paren_expr code_block                         { $2->warn_const_cond("While"); }
     ;
 
 for_stmt:
     // Note: We are creating a new scope here for the (optional) loop variable
     // so it doesn't conflict with variables from the parent scope.
-      FOR { enter_scope } '(' optional_declaration ';' expr ';' optional_assignment ')' code_block { leave_scope }
+      FOR { enter_scope(); } '(' optional_declaration ';' expr { $6->warn_const_cond("For"); } ';' optional_assignment ')'
+      code_block { leave_scope(); }
     ;
 
 optional_declaration:
@@ -178,12 +182,13 @@ optional_assignment:
     ;
 
 repeat_until_stmt:
-      REPEAT code_block UNTIL paren_expr ';'
+      REPEAT code_block UNTIL paren_expr ';'                { $4->warn_const_cond("Repeat-until"); }
     ;
 
 switch_stmt:
     // Note: A switch statement has to have atleast one CASE branch.
-      SWITCH paren_expr '{' switch_branches switch_default_branch '}'
+      SWITCH paren_expr                                     { push_switch_type($2->type); }
+      '{' switch_branches switch_default_branch '}'         { $2->warn_const_switch(); pop_switch_type(); }
     ;
 
 switch_branches:
@@ -192,12 +197,13 @@ switch_branches:
     ;
 
 switch_case_branch:
-      CASE expr ':' code_block
+    // Note: We don't support type casting for switch case braches.
+      CASE expr ':' code_block                              { validate_case_type($2); }
     ;
 
+// Note: there might be no default branch.
 switch_default_branch:
-      DEFAULT ':' code_block
-    |
+    | DEFAULT ':' code_block
     ;
 %%
 
@@ -212,7 +218,7 @@ int main(int argc, char** argv) {
     if (yyparse()) log_syntax;
     if (syntax_errors) {
         cerr << "Found " << syntax_errors <<" syntax error(s)" <<endl;
-        abort;
+        abort();
     }
 
     // Semantic errors are checked for while parsing.

@@ -17,7 +17,7 @@ int syntax_errors = 0;
 #define semantic_error(msg)                                     \
     {                                                           \
         cerr << "SEM-E(L#" << yylineno << "): " << msg << endl; \
-        abort;                                                  \
+        abort();                                                \
     }
 #define semantic_warning(msg)                                   \
     {                                                           \
@@ -29,27 +29,24 @@ string fout;
 ofstream symlog;
 ofstream quadout;
 // Clear the output files and exit(1).
-#define abort                         \
-    {                                 \
-        symlog.close();               \
-        symlog.open(fout + ".sym");   \
-        quadout.close();              \
-        quadout.open(fout + ".quad"); \
-        exit(1);                      \
-    }
+void abort()
+{
+    symlog.close();
+    symlog.open(fout + ".sym");
+    quadout.close();
+    quadout.open(fout + ".quad");
+    exit(1);
+}
 
+// Symbol table: Access the scope first then the identifier by name.
+vector<map<string, struct Identifier *>> symtable(1);
 // Controls the scope of variables.
 int current_scope = 0;
-#define enter_scope                                      \
-    {                                                    \
-        current_scope++;                                 \
-        symtable.push_back(map<string, Identifier *>()); \
-    }
-#define leave_scope          \
-    {                        \
-        current_scope--;     \
-        symtable.pop_back(); \
-    }
+void enter_scope()
+{
+    current_scope++;
+    symtable.push_back(map<string, Identifier *>());
+}
 
 // Wrappers around a list of some type to not expose these stuff to LEX's C interface.
 struct StringList
@@ -75,6 +72,10 @@ struct TypeList
     TypeList(yytokentype item)
     {
         this->append(item);
+    }
+
+    TypeList()
+    {
     }
 
     TypeList *append(yytokentype item)
@@ -137,9 +138,6 @@ const char *token_name(yytokentype type)
     }
 }
 
-// Symbol table: Access the scope first then the identifier by name.
-vector<map<string, struct Identifier *>> symtable(1);
-
 // The computed value of an expression.
 union Value
 {
@@ -181,6 +179,28 @@ struct Expression
         this->type = ENUM_TYPE_DECLARATION;
         this->is_const = false;
         this->enum_type_name = enum_type_name;
+    }
+
+    void warn_const_cond(string stmt)
+    {
+        if (this->type != LOGICAL)
+            semantic_error(format("%s statement's condition is %s but it must be %s.", stmt.c_str(), token_name(this->type), token_name(LOGICAL)));
+        string value = this->value.logical ? "true" : "false";
+        if (this->is_const)
+            semantic_warning(format("%s statement's condition is always %s.", stmt.c_str(), value.c_str()));
+    }
+
+    void warn_const_switch()
+    {
+        string value;
+        if (this->is_num())
+            value = this->type == INTEGER ? to_string((int)this->get_num()) : to_string(this->get_num());
+        else if (this->type == STRING)
+            value = *this->value.str;
+        else
+            semantic_error(format("Switch statement's condition is %s but it must be %s, %s or %.s.", token_name(this->type), token_name(INTEGER), token_name(DOUBLE), token_name(STRING)));
+        if (this->is_const)
+            semantic_warning(format("Switch statement's condition is always %s.", value.c_str()));
     }
 
     bool is_num()
@@ -554,6 +574,12 @@ Identifier *var_identifier(string name, yytokentype type)
     return new Identifier(name, type, false, false, Value());
 }
 
+// Same as the one above but marks the variable as initialized.
+Identifier *func_param_identifier(string name, yytokentype type)
+{
+    return new Identifier(name, type, true, false, Value());
+}
+
 Identifier *const_var_identifier(string name, yytokentype type, Value value)
 {
     return new Identifier(name, type, true, true, value);
@@ -573,6 +599,8 @@ Identifier *enum_var_identifier(string name, string type)
 Expression *get_expr_for_variable(string name)
 {
     Identifier *id = get_ident(name, "Variable");
+    if (id->is_initialized == false)
+        semantic_warning(format("Variable '%s' is being used without being initialized", name.c_str()));
     id->is_used = true;
     return id->get_expr();
 }
@@ -580,26 +608,17 @@ Expression *get_expr_for_variable(string name)
 Expression *get_expr_for_func_invocation(string name, struct TypeList *args)
 {
     vector<yytokentype> arg_types = args->list;
-    int scp = current_scope;
-    do
-        if (symtable[scp].find(name) != symtable[scp].end())
-        {
-            Identifier *id = symtable[scp][name];
-            if (!id->is_func)
-                semantic_error(format("Identifier '%s' is not a function.", name.c_str()));
+    Identifier *id = get_ident(name, "Function");
 
-            if (id->func_params.size() != arg_types.size())
-                semantic_error(format("Function '%s' expects %d arguments, but %d were provided.", name.c_str(), id->func_params.size(), arg_types.size()));
+    if (id->func_params.size() != arg_types.size())
+        semantic_error(format("Function '%s' expects %d arguments, but %d were provided.", name.c_str(), id->func_params.size(), arg_types.size()));
 
-            for (int i = 0; i < arg_types.size(); i++)
-                if (id->func_params[i] != arg_types[i])
-                    semantic_error(format("Argument N#%d of function '%s' is %s, but %s was provided.", i + 1, name.c_str(), token_name(id->func_params[i]), token_name(arg_types[i])));
+    for (int i = 0; i < arg_types.size(); i++)
+        if (id->func_params[i] != arg_types[i])
+            semantic_error(format("Argument N#%d of function '%s' is %s, but %s was provided.", i + 1, name.c_str(), token_name(id->func_params[i]), token_name(arg_types[i])));
 
-            id->is_used = true;
-            return id->get_expr();
-        }
-    while (scp--);
-    semantic_error(format("Function '%s' has not been declared before.", name.c_str()));
+    id->is_used = true;
+    return id->get_expr();
 }
 
 void assign_expr_to_identifier(Expression *expr, string name)
@@ -613,7 +632,7 @@ void assign_expr_to_identifier(Expression *expr, string name)
     {
         // Make sure they are of the same type.
         if (id->enum_type != expr->enum_type_name)
-            semantic_error(format("'%s' of enum type '%s' cannot be assigned an expression of enum type '%s'", id->name.c_str(), id->enum_type.c_str(), expr->enum_type_name.c_str()));
+            semantic_error(format("'%s' of enum type '%s' cannot be assigned an expression of enum type '%s'.", id->name.c_str(), id->enum_type.c_str(), expr->enum_type_name.c_str()));
     }
     // Other assignments must be of the same type as well.
     else if (id->type != expr->type)
@@ -644,40 +663,104 @@ void declare_identifier(Identifier *id)
 
 void check_enum_contains_variant(string enum_type, string enum_variant)
 {
-    int scp = current_scope;
-    do
-        if (symtable[scp].find(enum_type) != symtable[scp].end())
+    Identifier *id = get_ident(enum_type, "Enum");
+    for (string variant : id->enum_variants)
+        if (variant == enum_variant)
         {
-            if (symtable[scp][enum_type]->is_enum_type)
-            {
-                for (string variant : symtable[scp][enum_type]->enum_variants)
-                    if (variant == enum_variant)
-                        return;
-                semantic_error(format("Enum '%s' does not contain variant '%s'.", enum_type.c_str(), enum_variant.c_str()));
-            }
-            else
-                semantic_error(format("'%s' is not an enum type. (X.Y) syntax is only usable when X is an enum type and Y is a variant of it.", enum_type.c_str()));
-            symtable[scp][enum_type]->is_used = true;
+            id->is_used = true;
+            return;
         }
-    while (scp--);
-    semantic_error(format("Enum '%s' has not been declared before.", enum_type.c_str()));
+    semantic_error(format("Enum '%s' does not contain variant '%s'.", enum_type.c_str(), enum_variant.c_str()));
 }
 
 // Stores a stack of function return types to check them against return statements.
 vector<pair<yytokentype, bool>> func_return_types_stack;
-void add_func_ret_type(yytokentype type) {
+void push_func_ret_type(yytokentype type)
+{
     func_return_types_stack.push_back({type, false});
 }
 void validate_return_type(Expression *expr)
 {
     yytokentype curr_ret_type = func_return_types_stack[func_return_types_stack.size() - 1].first;
     if (curr_ret_type != expr->type)
-        semantic_error(format("Return type mismatch. Expected %s, got %s.", token_name(curr_ret_type), token_name(expr->type)))
+        semantic_error(format("Return type mismatch. Expected %s, got %s.", token_name(curr_ret_type), token_name(expr->type)));
     func_return_types_stack[func_return_types_stack.size() - 1].second = true;
 }
-void check_return_included(string name) {
+void check_return_included(string name)
+{
     auto top = func_return_types_stack[func_return_types_stack.size() - 1];
     func_return_types_stack.pop_back();
     if (top.second == false)
         semantic_warning(format("Function '%s' doesn't return anything.", name.c_str(), token_name(top.first)))
+}
+
+// Like the above, but for switch statements.
+vector<yytokentype> switch_cases_stack;
+void push_switch_type(yytokentype type)
+{
+    switch_cases_stack.push_back(type);
+}
+void validate_case_type(Expression *expr)
+{
+    yytokentype case_type = switch_cases_stack[switch_cases_stack.size() - 1];
+    if (case_type != expr->type)
+        semantic_error(format("Case type mismatch. Expected %s, got %s.", token_name(case_type), token_name(expr->type)))
+}
+void pop_switch_type()
+{
+    switch_cases_stack.pop_back();
+}
+
+string padn(string s, int n)
+{
+    if (s.length() > n)
+        return s.substr(0, n - 3) + "...";
+    while (s.length() < n)
+        s += " ";
+    return s;
+}
+void log_symtable()
+{
+    symlog << "\t\t\t\t\t\t\t==================" << endl;
+    symlog << "L#" << yylineno << ":" << endl;
+    symlog << "Id. Name\t\tScope\tDec. Line\tIs Used\t\tIs Init.\tIs Const.\tValue" << endl;
+    for (auto scope_map : symtable)
+    {
+        for (auto ident : scope_map)
+        {
+            auto id = ident.second;
+            symlog << padn(id->name, 15) << "\t";
+            symlog << id->scope << "\t\t\t";
+            symlog << id->line << "\t\t\t";
+            symlog << id->is_used << "\t\t\t";
+            symlog << id->is_initialized << "\t\t\t";
+            symlog << id->is_const << "\t\t";
+            if (id->is_const)
+            {
+                if (id->type == INTEGER)
+                    symlog << id->value.integer;
+                else if (id->type == DOUBLE)
+                    symlog << id->value.real;
+                else if (id->type == STRING)
+                    symlog << '"' << *id->value.str << '"';
+                else if (id->type == LOGICAL)
+                    symlog << (id->value.logical ? "true" : "false");
+            }
+            else
+                symlog << "-";
+            symlog << endl;
+        }
+    }
+}
+void leave_scope()
+{
+    map<string, struct Identifier *> top = symtable[current_scope];
+    for (auto iden : top)
+    {
+        Identifier *id = iden.second;
+        if (id->is_used == false)
+            semantic_warning(format("Identifier '%s' defined in L#%d has never been used.", id->name.c_str(), id->line));
+    }
+    current_scope--;
+    symtable.pop_back();
 }
