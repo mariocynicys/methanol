@@ -79,9 +79,9 @@ false {
 }
 
     /* Other known characters */
-[\.,;:=(){}[\]]       return *yytext;
+[\.,;:=(){}[\]]             return *yytext;
 
 
     /* Unknown characters */
-.                   return ERROR;
+.                           return ERROR;
 %%
