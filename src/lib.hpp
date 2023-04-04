@@ -1,8 +1,10 @@
 #include <iostream>
+#include <iomanip>
 #include <fstream>
 #include <string>
 #include <vector>
 #include <map>
+#include "quads.hpp"
 #include "parse.tab.hpp"
 using namespace std;
 
@@ -223,14 +225,6 @@ struct Expression
         return type == ENUM_TYPE_DECLARATION;
     }
 
-    Value get_value()
-    {
-        if (this->is_const)
-            return this->value;
-        else
-            semantic_error(format("A non-constant expression doesn't have a compile-time known value."));
-    }
-
     Expression *neg()
     {
         if (type == INTEGER)
@@ -258,31 +252,28 @@ struct Expression
         this->is_const &= other->is_const;
         bool failed = false;
         if (false)
-        {
-        }
+            ;
         else if (op == PLUS)
         {
-            if (this->type == INTEGER && other->type == INTEGER)
-            { // No conversion needed.
+            if (this->type == INTEGER && other->type == INTEGER) // No conversion needed.
                 this->value.integer += other->value.integer;
-            }
-            else if (this->type == DOUBLE && other->type == DOUBLE)
-            { // No conversion needed.
+            else if (this->type == DOUBLE && other->type == DOUBLE) // No conversion needed.
                 this->value.real += other->value.real;
-            }
-            else if (this->type == INTEGER && other->type == DOUBLE)
-            { // Convert the first to double.
+            else if (this->type == INTEGER && other->type == DOUBLE) // Convert the first to double.
+            {
+                q_popt();
+                q_int2real();
+                q_pusht();
                 this->type = DOUBLE;
                 this->value.real = this->value.integer + other->value.real;
             }
-            else if (this->type == DOUBLE && other->type == INTEGER)
-            { // Convert the second to double.
+            else if (this->type == DOUBLE && other->type == INTEGER) // Convert the second to double.
+            {
+                q_int2real();
                 this->value.real += other->value.integer;
             }
             else
-            {
                 failed = true;
-            }
         }
         else if (op == MINUS)
         {
@@ -360,8 +351,7 @@ struct Expression
         {
             /* All the ones below will produce logical. */
             if (false)
-            {
-            }
+                ;
             else if (op == LT)
             {
                 if (this->is_num() && other->is_num())
@@ -564,6 +554,16 @@ Identifier *get_ident(string name, string expect)
     semantic_error(format("%s '%s' has not been declared before.", expect.c_str(), name.c_str()));
 }
 
+int get_scope(string name)
+{
+    int scp = current_scope;
+    do
+        if (symtable[scp].find(name) != symtable[scp].end())
+            return scp;
+    while (scp--);
+    return -1;
+}
+
 Identifier *func_identifier(string name, yytokentype type, TypeList *params)
 {
     return new Identifier(name, type, params->list);
@@ -580,9 +580,13 @@ Identifier *func_param_identifier(string name, yytokentype type)
     return new Identifier(name, type, true, false, Value());
 }
 
-Identifier *const_var_identifier(string name, yytokentype type, Value value)
+Identifier *const_var_identifier(string name, yytokentype type, Expression *expr)
 {
-    return new Identifier(name, type, true, true, value);
+    if (expr->type != type)
+        semantic_error(format("Type mismatch in constant declaration. Expected %s but got %s.", token_name(type), token_name(expr->type)));
+    if (!expr->is_const)
+        semantic_error(format("A non-constant expression doesn't have a compile-time known value."));
+    return new Identifier(name, type, true, true, expr->value);
 }
 
 Identifier *enum_typ_identifier(string name, StringList *variants)
@@ -621,7 +625,7 @@ Expression *get_expr_for_func_invocation(string name, struct TypeList *args)
     return id->get_expr();
 }
 
-void assign_expr_to_identifier(Expression *expr, string name)
+void assign_expr_to_variable(Expression *expr, string name)
 {
     Identifier *id = get_ident(name, "Variable");
     if (id->is_const)
@@ -640,16 +644,15 @@ void assign_expr_to_identifier(Expression *expr, string name)
         // But integers and reals are an exception.
         if (id->get_expr()->is_num() && expr->is_num())
         {
-            if (id->type == DOUBLE)
-            { // convert expr to real
-            }
-            else
-            { // convert expr to int
-            }
+            if (id->type == DOUBLE) // convert expr to real
+                q_int2real();
+            else // convert expr to int
+                q_real2int();
         }
         else
-            semantic_error(format("Cannot assign %s to %s.", token_name(expr->type), token_name(id->type)));
+            semantic_error(format("Variable '%s' declared in L#%d of type %s can't be assigned %s.", id->name.c_str(), id->line, token_name(id->type), token_name(expr->type)));
     }
+    q_popv(id->name);
     id->is_initialized = true;
     id->value = expr->value;
 }
@@ -661,14 +664,14 @@ void declare_identifier(Identifier *id)
     symtable[current_scope][id->name] = id;
 }
 
-void check_enum_contains_variant(string enum_type, string enum_variant)
+string check_and_get_static_enum_code(string enum_type, string enum_variant)
 {
     Identifier *id = get_ident(enum_type, "Enum");
     for (string variant : id->enum_variants)
         if (variant == enum_variant)
         {
             id->is_used = true;
-            return;
+            return enum_type + "." + enum_variant;
         }
     semantic_error(format("Enum '%s' does not contain variant '%s'.", enum_type.c_str(), enum_variant.c_str()));
 }
@@ -692,6 +695,16 @@ void check_return_included(string name)
     func_return_types_stack.pop_back();
     if (top.second == false)
         semantic_warning(format("Function '%s' doesn't return anything.", name.c_str(), token_name(top.first)))
+
+    // Also add a return just for safety.
+    if (top.first == INTEGER || top.first == LOGICAL)
+        q_push(0);
+    else if (top.first == DOUBLE)
+        q_push(0.0);
+    else if (top.first == STRING)
+        q_pushs("");
+    q_ret();
+    q_newline();
 }
 
 // Like the above, but for switch statements.
@@ -758,7 +771,7 @@ void leave_scope()
     for (auto iden : top)
     {
         Identifier *id = iden.second;
-        if (id->is_used == false)
+        if (!id->is_used)
             semantic_warning(format("Identifier '%s' defined in L#%d has never been used.", id->name.c_str(), id->line));
     }
     current_scope--;
