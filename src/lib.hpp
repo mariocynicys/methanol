@@ -277,75 +277,69 @@ struct Expression
         }
         else if (op == MINUS)
         {
-            if (this->type == INTEGER && other->type == INTEGER)
-            { // No conversion needed.
+            if (this->type == INTEGER && other->type == INTEGER) // No conversion needed.
                 this->value.integer -= other->value.integer;
-            }
-            else if (this->type == DOUBLE && other->type == DOUBLE)
-            { // No conversion needed.
+            else if (this->type == DOUBLE && other->type == DOUBLE) // No conversion needed.
                 this->value.real -= other->value.real;
-            }
-            else if (this->type == INTEGER && other->type == DOUBLE)
-            { // Convert the first to double.
+            else if (this->type == INTEGER && other->type == DOUBLE) // Convert the first to double.
+            {
+                q_popt();
+                q_int2real();
+                q_pusht();
                 this->type = DOUBLE;
                 this->value.real = this->value.integer - other->value.real;
             }
-            else if (this->type == DOUBLE && other->type == INTEGER)
-            { // Convert the second to double.
+            else if (this->type == DOUBLE && other->type == INTEGER) // Convert the second to double.
+            {
+                q_int2real();
                 this->value.real -= other->value.integer;
             }
             else
-            {
                 failed = true;
-            }
         }
         else if (op == MULT)
         {
-            if (this->type == INTEGER && other->type == INTEGER)
-            { // No conversion needed.
+            if (this->type == INTEGER && other->type == INTEGER) // No conversion needed.
                 this->value.integer *= other->value.integer;
-            }
-            else if (this->type == DOUBLE && other->type == DOUBLE)
-            { // No conversion needed.
+            else if (this->type == DOUBLE && other->type == DOUBLE) // No conversion needed.
                 this->value.real *= other->value.real;
-            }
-            else if (this->type == INTEGER && other->type == DOUBLE)
-            { // Convert the first to double.
+            else if (this->type == INTEGER && other->type == DOUBLE) // Convert the first to double.
+            {
+                q_popt();
+                q_int2real();
+                q_pusht();
                 this->type = DOUBLE;
                 this->value.real = this->value.integer * other->value.real;
             }
-            else if (this->type == DOUBLE && other->type == INTEGER)
-            { // Convert the second to double.
+            else if (this->type == DOUBLE && other->type == INTEGER) // Convert the second to double.
+            {
+                q_int2real();
                 this->value.real *= other->value.integer;
             }
             else
-            {
                 failed = true;
-            }
         }
         else if (op == DIV)
         {
-            if (this->type == INTEGER && other->type == INTEGER)
-            { // No conversion needed.
+            if (this->type == INTEGER && other->type == INTEGER) // No conversion needed.
                 this->value.integer /= other->value.integer;
-            }
-            else if (this->type == DOUBLE && other->type == DOUBLE)
-            { // No conversion needed.
+            else if (this->type == DOUBLE && other->type == DOUBLE) // No conversion needed.
                 this->value.real /= other->value.real;
-            }
-            else if (this->type == INTEGER && other->type == DOUBLE)
-            { // Convert the first to double.
+            else if (this->type == INTEGER && other->type == DOUBLE) // Convert the first to double.
+            {
+                q_popt();
+                q_int2real();
+                q_pusht();
                 this->type = DOUBLE;
                 this->value.real = this->value.integer / other->value.real;
             }
-            else if (this->type == DOUBLE && other->type == INTEGER)
-            { // Convert the second to double.
+            else if (this->type == DOUBLE && other->type == INTEGER) // Convert the second to double.
+            {
+                q_int2real();
                 this->value.real /= other->value.integer;
             }
             else
-            {
                 failed = true;
-            }
         }
         else
         {
