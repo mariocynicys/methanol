@@ -69,5 +69,5 @@ std::vector<std::string> switch_stack;
 #define q_switch() lbl++; switch_stack.push_back(" s" + std::to_string(current_scope) + "_l" + std::to_string(lbl))
 #define q_dupexpr() q_popt(); q_pusht(); q_pusht();
 #define q_casecheck() lbl++; quadout << "\tEQ" << endl << "\tJZ" << print_lbl << endl
-#define q_endcase() q_pop(); quadout << "\tJMP" << last_switch_lbl << endl << "LABEL" << print_lbl << ":" << endl
-#define q_endswitch() quadout << "LABEL" << last_switch_lbl << ":" << endl; switch_stack.pop_back()
+#define q_endcase() quadout << "\tJMP" << last_switch_lbl << endl << "LABEL" << print_lbl << ":" << endl
+#define q_endswitch() quadout << "LABEL" << last_switch_lbl << ":" << endl; switch_stack.pop_back(); q_pop()
