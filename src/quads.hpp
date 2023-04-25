@@ -8,6 +8,7 @@
 #define q_popv(name) quadout << "\tPOP v_" << name << get_scope(name) << endl
 #define q_popt() quadout << "\tPOP " << "tmp" << endl
 #define q_pusht() quadout << "\tPUSH " << "tmp" << endl
+#define q_dupexpr() quadout << "\tDUP" << endl
 
 #define q_int2real() quadout << "\tINT2REAL" << endl
 #define q_real2int() quadout << "\tREAL2INT" << endl
@@ -65,7 +66,6 @@ std::vector<std::string> switch_stack;
 #define last_switch_lbl switch_stack[switch_stack.size() - 1]
 
 #define q_switch() lbl++; switch_stack.push_back(" s" + std::to_string(current_scope) + "_l" + std::to_string(lbl))
-#define q_dupexpr() q_popt(); q_pusht(); q_pusht();
 #define q_casecheck() lbl++; quadout << "\tEQ" << endl << "\tJZ" << print_lbl << endl
 #define q_endcase() quadout << "\tJMP" << last_switch_lbl << endl << "LABEL" << print_lbl << ":" << endl
 #define q_endswitch() quadout << "LABEL" << last_switch_lbl << ":" << endl; switch_stack.pop_back(); q_pop(); q_end("switch")

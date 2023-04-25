@@ -55,6 +55,7 @@ It has compile times less than Rust and is memory safer as well.
 | ---- | ----------- |
 | PUSH x | Pushes x to the stack, with x here being an expression |
 | POP x | Pops the top of the stack in variable x, where x is optional here |
+| DUP | Duplicated the top of the stack: if the stack is [v] it will end up [v, v] after `DUP` |
 | INT2REAL | Pops the top of the stack, converts it from an integer to a real number and pushes it back |
 | REAL2INT | Obvious |
 | DEF | Defines a function (something like a label for functions) |
