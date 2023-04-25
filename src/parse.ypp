@@ -206,7 +206,7 @@ switch_case_branch:
 
 // Note: there might be no default branch.
 switch_default_branch:
-    | DEFAULT ':' code_block   { q_pop(/* Pops the switch expression */); }
+    | DEFAULT ':' code_block
     ;
 %%
 
