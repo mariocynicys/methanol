@@ -12,12 +12,11 @@
 #define q_int2real() quadout << "\tINT2REAL" << endl
 #define q_real2int() quadout << "\tREAL2INT" << endl
 
-#define q_funcdef(name, scp) quadout << "\nDEF f_" << name << scp << ":" << endl
+#define q_funcdef(name, scp) quadout << "DEF f_" << name << scp << ":" << endl
 #define q_funcall(name) quadout << "\tCALL f_" << name << get_scope(name) << endl
 #define q_ret() quadout << "\tRET" << endl
 
 #define q_print() quadout << "\tPRINT" << endl
-#define q_newline() quadout << endl
 
 // Operations.
 #define q_neg() quadout << "\tNEG" << endl
@@ -45,21 +44,20 @@ std::map<int, int> lbls;
 #define print_lbl " s" << current_scope << "_l" << lbl
 
 #define q_if() lbl++; quadout << "\tJZ" << print_lbl << endl
-#define q_endif() quadout << "LABEL" << print_lbl << ":" << endl
 #define q_else() lbl++; quadout << "\tJMP" << print_lbl << endl << "LABEL" << print_lbl - 1 << ":" << endl
-#define q_endifelse() quadout << "LABEL" << print_lbl << ":" << endl
+#define q_endif() quadout << "LABEL" << print_lbl << ":" << endl; q_end("if")
 
 #define q_while() lbl++; quadout << "LABEL" << print_lbl << ":" << endl
 #define q_checkwhile() lbl++; quadout << "\tJZ" << print_lbl << endl
-#define q_endwhile() quadout << "\tJMP" << print_lbl - 1 << endl << "LABEL" << print_lbl << ":" << endl
+#define q_endwhile() quadout << "\tJMP" << print_lbl - 1 << endl << "LABEL" << print_lbl << ":" << endl; q_end("while")
 
 #define q_repeat() lbl++; quadout << "LABEL" << print_lbl << ":" << endl
-#define q_endrepeat() quadout << "\tJNZ" << print_lbl << endl
+#define q_endrepeat() quadout << "\tJNZ" << print_lbl << endl; q_end("repeat")
 
 #define q_for() lbl++; quadout << "LABEL" << print_lbl << ":" << endl
 #define q_checkfor() quadout << "\tJZ" << print_lbl + 3 << endl << "\tJMP" << print_lbl + 2 << endl << "LABEL" << print_lbl + 1 << ":" << endl
 #define q_forback() quadout << "\tJMP" << print_lbl << endl << "LABEL" << print_lbl + 2 << ":" << endl
-#define q_endfor() quadout << "\tJMP" << print_lbl + 1 << endl << "LABEL" << print_lbl + 3 << ":" << endl; lbl += 3
+#define q_endfor() quadout << "\tJMP" << print_lbl + 1 << endl << "LABEL" << print_lbl + 3 << ":" << endl; lbl += 3; q_end("for")
 
 // A stack of labels to get out of a switch statement.
 // This is necessary because we don't know how many cases a switch statement has.
@@ -70,4 +68,8 @@ std::vector<std::string> switch_stack;
 #define q_dupexpr() q_popt(); q_pusht(); q_pusht();
 #define q_casecheck() lbl++; quadout << "\tEQ" << endl << "\tJZ" << print_lbl << endl
 #define q_endcase() quadout << "\tJMP" << last_switch_lbl << endl << "LABEL" << print_lbl << ":" << endl
-#define q_endswitch() quadout << "LABEL" << last_switch_lbl << ":" << endl; switch_stack.pop_back(); q_pop()
+#define q_endswitch() quadout << "LABEL" << last_switch_lbl << ":" << endl; switch_stack.pop_back(); q_pop(); q_end("switch")
+
+
+#define q_start(name) quadout << endl << endl << "/* " << name << " statement */" << endl
+#define q_end(name) quadout << "/* " << name << " statement */" << endl << endl
