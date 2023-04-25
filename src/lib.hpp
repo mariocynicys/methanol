@@ -698,7 +698,7 @@ void check_return_included(string name)
     else if (top.first == STRING)
         q_pushs("");
     q_ret();
-    q_newline();
+    q_end("function definition");
 }
 
 // Like the above, but for switch statements.
