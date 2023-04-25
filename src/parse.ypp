@@ -159,8 +159,8 @@ paren_expr:
     ;
 
 if_part:
-      IF { q_start("if"); } paren_expr                  { q_if(); }
-      code_block                                        { $3->warn_const_cond("If"); }
+      IF { q_start("if"); } paren_expr                  { q_if(); $3->warn_const_cond("If"); }
+      code_block
     ;
 
 if_stmt:
@@ -169,7 +169,8 @@ if_stmt:
     ;
 
 while_stmt:
-      WHILE { q_start("while"); q_while(); } paren_expr { q_checkwhile(); } code_block           { q_endwhile(); $3->warn_const_cond("While"); }
+      WHILE { q_start("while"); q_while(); } paren_expr { q_checkwhile(); $3->warn_const_cond("While"); }
+      code_block                                        { q_endwhile(); }
     ;
 
 repeat_until_stmt:
@@ -193,8 +194,8 @@ optional_assignment:
 
 switch_stmt:
       // Note: A switch statement has to have atleast one CASE branch.
-      SWITCH { q_start("switch"); } paren_expr              { q_switch(); push_switch_type($3->type); }
-      '{' switch_branches switch_default_branch '}'         { q_endswitch(); $3->warn_const_switch(); pop_switch_type(); }
+      SWITCH { q_start("switch"); } paren_expr              { q_switch(); push_switch_type($3->type); $3->warn_const_switch(); }
+      '{' switch_branches switch_default_branch '}'         { q_endswitch(); pop_switch_type(); }
     ;
 
 switch_branches:
