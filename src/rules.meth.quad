@@ -84,9 +84,7 @@ LABEL s1_l4:
 
 /* switch statement */
 	PUSH v_a0
-	POP tmp
-	PUSH tmp
-	PUSH tmp
+	DUP
 	PUSH 20
 	EQ
 	JZ s0_l7
@@ -94,9 +92,7 @@ LABEL s1_l4:
 	POP v_b0
 	JMP s0_l6
 LABEL s0_l7:
-	POP tmp
-	PUSH tmp
-	PUSH tmp
+	DUP
 	PUSH 50
 	EQ
 	JZ s0_l8
