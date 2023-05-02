@@ -1,11 +1,15 @@
 %{
     #include <iostream>
-    #include "lib.hpp"
     using namespace std;
 
     // Functions needed by yacc.
     extern int yylex();
     void yyerror(string e) { /* Shut yacc up */ }
+
+    extern int yylineno;
+    extern char *yytext;
+    int syntax_errors = 0;
+    #define log_syntax() cerr << "STX(N#" << ++syntax_errors << "): Invalid syntax near '" << yytext << "' in L#" << yylineno << endl
 
     // Where the input is read from (file or stdin).
     extern FILE* yyin;
@@ -17,11 +21,6 @@
 %token <double> DOUBLE
 %token <char*> STRING
 %token <char*> IDENTIFIER
-
-%type <yytokentype> type
-%type <struct Expression*> expr paren_expr function_invokation
-%type <struct TypeList*> typed_parameter_list argument_list
-%type <struct StringList*> parameter_list
 
 %token ERROR
 %token NOT AND OR
@@ -41,12 +40,12 @@
 
 %start program
 %%
-program: stmts                              { leave_scope(/* To trigger warning for unused variables in the global scope */); }
+program: stmts                              
     ;
 
 // Note: stmts can be empty.
 stmts:
-    | stmts stmt                            { log_symtable(); }
+    | stmts stmt                            
     ;
 
 stmt:
@@ -55,133 +54,133 @@ stmt:
     | declaration ';'
     | function_declaration
     // Note: We pop below because this value isn't gonna be used. The program is still correct without popping though.
-    | expr ';'                      { q_pop(); }
+    | expr ';'                      
     // Note: We don't support type casting for return statements.
-    | RETURN expr ';'               { validate_return_type($2); q_ret(); }
-    | PRINT expr ';'                { q_print(); }
+    | RETURN expr ';'               
+    | PRINT expr ';'                
     | if_stmt
     | while_stmt
     | for_stmt
     | repeat_until_stmt
     | switch_stmt
-    | ERROR                         { log_syntax }
+    | ERROR                         { log_syntax(); }
     | ';'
     ;
 
 code_block:
-      '{' { enter_scope(); } stmts '}' { leave_scope(); }
+      '{' stmts '}' 
     ;
 
 assignment:
-      IDENTIFIER '=' expr           { assign_expr_to_variable($3, $1); }
+      IDENTIFIER '=' expr           
     ;
 
 type:
-      INTEGER_TYPE_DECLARATION      { $$ = INTEGER; }
-    | DOUBLE_TYPE_DECLARATION       { $$ = DOUBLE; }
-    | LOGICAL_TYPE_DECLARATION      { $$ = LOGICAL; }
-    | STRING_TYPE_DECLARATION       { $$ = STRING; }
+      INTEGER_TYPE_DECLARATION      
+    | DOUBLE_TYPE_DECLARATION       
+    | LOGICAL_TYPE_DECLARATION      
+    | STRING_TYPE_DECLARATION       
     ;
 
 declaration:
-      type IDENTIFIER                                           { declare_identifier(var_identifier($2, $1)); }
-    | type IDENTIFIER '=' expr                                  { declare_identifier(var_identifier($2, $1)); assign_expr_to_variable($4, $2); }
+      type IDENTIFIER                                           
+    | type IDENTIFIER '=' expr                                  
     // Note: A constant has to be assinged a value at declaration.
     // Note: We don't support type casting for constants.
-    | CONSTANT type IDENTIFIER '=' expr                         { declare_identifier(const_var_identifier($3, $2, $5)); q_popv($3); }
-    | ENUM_TYPE_DECLARATION IDENTIFIER '[' parameter_list ']'   { declare_identifier(enum_typ_identifier($2, $4)); }
+    | CONSTANT type IDENTIFIER '=' expr                         
+    | ENUM_TYPE_DECLARATION IDENTIFIER '[' parameter_list ']'   
     // Declaration of an enum variables.
     // Note: We don't suppport enums being consts.
-    | IDENTIFIER IDENTIFIER                                     { declare_identifier(enum_var_identifier($2, $1)); }
-    | IDENTIFIER IDENTIFIER '=' expr                            { declare_identifier(enum_var_identifier($2, $1)); assign_expr_to_variable($4, $2); }
+    | IDENTIFIER IDENTIFIER                                     
+    | IDENTIFIER IDENTIFIER '=' expr                            
     ;
 
 parameter_list:
-      parameter_list ',' IDENTIFIER     { $$ = $1->append($3); }
-    | IDENTIFIER                        { $$ = new StringList($1); }
+      parameter_list ',' IDENTIFIER     
+    | IDENTIFIER                        
     ;
 
 function_declaration:
       // Note: We are creating a new scope for the function parameters.
       // Note: We don't support functions returning enums.
-      type IDENTIFIER               { q_start("function definition"); push_func_ret_type($1); q_funcdef($2, current_scope); enter_scope(); }
+      type IDENTIFIER               
       '(' typed_parameter_list ')'
-      code_block                    { leave_scope(); declare_identifier(func_identifier($2, $1, $5)); check_return_included($2); }
+      code_block                    
     ;
 
 typed_parameter_list:
-      typed_parameter_list ',' type IDENTIFIER      { $$ = $1->append($3); declare_identifier(func_param_identifier($4, $3)); q_popv($4); }
-    | type IDENTIFIER                               { $$ = new TypeList($1); declare_identifier(func_param_identifier($2, $1)); q_popv($2); }
-    |                                               { $$ = new TypeList(); }
+      typed_parameter_list ',' type IDENTIFIER      
+    | type IDENTIFIER                               
+    |                                               
     ;
 
 expr:
-      IDENTIFIER                { $$ = get_expr_for_variable($1); q_pushv($1); }
-    | INTEGER                   { $$ = new Expression(INTEGER, true, Value($1)); q_push($1); }
-    | DOUBLE                    { $$ = new Expression(DOUBLE, true, Value($1)); q_push($1); }
-    | LOGICAL                   { $$ = new Expression(LOGICAL, true, Value($1)); q_push($1); }
-    | STRING                    { $$ = new Expression(STRING, true, Value($1)); q_pushs($1); }
+      IDENTIFIER                
+    | INTEGER                   
+    | DOUBLE                    
+    | LOGICAL                   
+    | STRING                    
     // For enum expressions.
-    | IDENTIFIER '.' IDENTIFIER { $$ = new Expression($1); q_pushs(check_and_get_static_enum_code($1, $3)); }
-    | function_invokation       { $$ = $1; }
-    | paren_expr                { $$ = $1; }
+    | IDENTIFIER '.' IDENTIFIER 
+    | function_invokation       
+    | paren_expr                
     // The next set for expressions should operate only on numbers.
-    | MINUS expr %prec UMINUS   { $$ = $2->neg(); q_neg(); }
-    | expr PLUS expr            { $$ = $1->oper($3, PLUS); q_plus(); }
-    | expr MINUS expr           { $$ = $1->oper($3, MINUS); q_minus(); }
-    | expr MULT expr            { $$ = $1->oper($3, MULT); q_mult(); }
-    | expr DIV expr             { $$ = $1->oper($3, DIV); q_div(); }
-    | expr LT expr              { $$ = $1->oper($3, LT); q_lt(); }
-    | expr GT expr              { $$ = $1->oper($3, GT); q_gt(); }
-    | expr LTE expr             { $$ = $1->oper($3, LTE); q_lte(); }
-    | expr GTE expr             { $$ = $1->oper($3, GTE); q_gte(); }
+    | MINUS expr %prec UMINUS   
+    | expr PLUS expr            
+    | expr MINUS expr           
+    | expr MULT expr            
+    | expr DIV expr             
+    | expr LT expr              
+    | expr GT expr              
+    | expr LTE expr             
+    | expr GTE expr             
     // The next set for expressions should operate on numbers and strings.
-    | expr EQ expr              { $$ = $1->oper($3, EQ); q_eq(); }
-    | expr NE expr              { $$ = $1->oper($3, NE); q_ne(); }
+    | expr EQ expr              
+    | expr NE expr              
     // The next set for expressions should operate only on logicals.
-    | expr AND expr             { $$ = $1->oper($3, AND); q_and(); }
-    | expr OR expr              { $$ = $1->oper($3, OR); q_or(); }
-    | NOT expr                  { $$ = $2->complement(); q_not(); }
+    | expr AND expr             
+    | expr OR expr              
+    | NOT expr                  
     ;
 
 function_invokation:
-      IDENTIFIER '(' argument_list ')'      { $$ = get_expr_for_func_invocation($1, $3); q_funcall($1); }
+      IDENTIFIER '(' argument_list ')'      
     ;
 
 argument_list:
-      argument_list ',' expr                { $$ = $1->append($3->type); }
-    | expr                                  { $$ = new TypeList($1->type); }
-    |                                       { $$ = new TypeList(); }
+      argument_list ',' expr                
+    | expr                                  
+    |                                       
     ;
 
 paren_expr:
-      '(' expr ')'                          { $$ = $2; }
+      '(' expr ')'                          
     ;
 
 if_part:
-      IF { q_start("if"); } paren_expr                  { q_if(); $3->warn_const_cond("If"); }
+      IF  paren_expr                  
       code_block
     ;
 
 if_stmt:
-      if_part                                           { q_endif(); }
-    | if_part ELSE { q_else(); } code_block             { q_endif(); }
+      if_part                                           
+    | if_part ELSE  code_block             
     ;
 
 while_stmt:
-      WHILE { q_start("while"); q_while(); } paren_expr { q_checkwhile(); $3->warn_const_cond("While"); }
-      code_block                                        { q_endwhile(); }
+      WHILE  paren_expr 
+      code_block                                        
     ;
 
 repeat_until_stmt:
-      REPEAT { q_start("repeat"); q_repeat(); } code_block UNTIL paren_expr ';'                  { q_endrepeat(); $5->warn_const_cond("Repeat-until"); }
+      REPEAT  code_block UNTIL paren_expr ';'                  
     ;
 
 for_stmt:
       // Note: We are creating a new scope here for the (optional) loop variable
       // so it doesn't conflict with variables from the parent scope.
-      FOR { q_start("for"); enter_scope(); } '(' optional_declaration { q_for(); } ';' expr { q_checkfor(); $7->warn_const_cond("For"); } ';' optional_assignment ')' { q_forback(); }
-      code_block { q_endfor(); leave_scope(); }
+      FOR  '(' optional_declaration  ';' expr  ';' optional_assignment ')' 
+      code_block 
     ;
 
 optional_declaration:
@@ -194,8 +193,8 @@ optional_assignment:
 
 switch_stmt:
       // Note: A switch statement has to have atleast one CASE branch.
-      SWITCH { q_start("switch"); } paren_expr              { q_switch(); push_switch_type($3->type); $3->warn_const_switch(); }
-      '{' switch_branches switch_default_branch '}'         { q_endswitch(); pop_switch_type(); }
+      SWITCH  paren_expr              
+      '{' switch_branches switch_default_branch '}'         
     ;
 
 switch_branches:
@@ -205,7 +204,7 @@ switch_branches:
 
 switch_case_branch:
       // Note: We don't support type casting for switch case braches.
-      CASE { q_dupexpr(); } expr { q_casecheck(); } ':' code_block         { q_endcase(); validate_case_type($3); }
+      CASE  expr  ':' code_block         
     ;
 
 // Note: there might be no default branch.
@@ -217,17 +216,12 @@ switch_default_branch:
 int main(int argc, char** argv) {
     // Handle input and output files.
     yyin = fopen(argv[1], "r");
-    fout = argv[1];
-    symlog.open(fout + ".sym");
-    quadout.open(fout + ".quad");
-    quadout << fixed << setprecision(5);
-    symlog << fixed << setprecision(3);
 
     // Handle syntax errors.
-    if (yyparse()) log_syntax;
+    if (yyparse()) log_syntax();
     if (syntax_errors) {
-        cerr << "Found " << syntax_errors <<" syntax error(s)" <<endl;
-        abort();
+        cerr << "Found " << syntax_errors <<" syntax error(s)" << endl;
+        exit(1);
     }
 
     // Semantic errors are checked for while parsing.

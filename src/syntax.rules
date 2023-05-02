@@ -1,10 +1,11 @@
 // Number Operations: +, -, *, /
-// Log Operation: |, &, !
+// Logical Operation: |, &, !
 // Assignment: =
-// Comparison (for any type): ==, !=, >, <, >=, <=
+// Comparison: ==, !=, >, <, >=, <=
 
 // 1- Declarations:
 int a;
+flt m;
 log b;
 str c = "initial value";
 const int z = 5;
