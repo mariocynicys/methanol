@@ -106,7 +106,7 @@ function_declaration:
       // Note: We don't support functions returning enums.
       type IDENTIFIER               { q_start("function definition"); push_func_ret_type($1); q_funcdef($2, current_scope); enter_scope(); }
       '(' typed_parameter_list ')'
-      code_block                    { leave_scope(); declare_identifier(func_identifier($2, $1, $5)); check_return_included($2); }
+      code_block                    { leave_scope(); declare_identifier(func_identifier($2, $1, $5)); check_return_included($2); q_endfunc($2); }
     ;
 
 typed_parameter_list:
