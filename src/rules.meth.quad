@@ -115,6 +115,7 @@ LABEL s0_l6:
 
 
 /* function definition statement */
+	JMP fend_add_one0
 DEF f_add_one0:
 	POP v_x1
 	PUSH v_x1
@@ -125,6 +126,7 @@ DEF f_add_one0:
 	RET
 /* function definition statement */
 
+LABEL fend_add_one0:
 	PUSH v_a0
 	CALL f_add_one0
 	POP v_a0

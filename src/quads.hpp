@@ -13,9 +13,10 @@
 #define q_int2real() quadout << "\tINT2REAL" << endl
 #define q_real2int() quadout << "\tREAL2INT" << endl
 
-#define q_funcdef(name, scp) quadout << "DEF f_" << name << scp << ":" << endl
+#define q_funcdef(name, scp) quadout << "\tJMP fend_" << name << scp << endl << "DEF f_" << name << scp << ":" << endl
 #define q_funcall(name) quadout << "\tCALL f_" << name << get_scope(name) << endl
 #define q_ret() quadout << "\tRET" << endl
+#define q_endfunc(name) quadout << "LABEL fend_" << name << get_scope(name) << ":" << endl
 
 #define q_print() quadout << "\tPRINT" << endl
 
