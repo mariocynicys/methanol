@@ -63,6 +63,8 @@ def main(file):
             pass
         elif line.startswith(("LABEL", "DEF")):
             pass
+        elif line.startswith(("INT2REAL", "REAL2INT")):
+            pass
         elif line == "POP":
             stack.pop()
         elif line == "PRINT":
@@ -97,13 +99,13 @@ def main(file):
             stack.append(float(stack.pop()) < float(stack.pop()))
         elif line == "GT":
             stack.append(float(stack.pop()) > float(stack.pop()))
-        elif line == "LTE":
+        elif line == "LTEQ":
             stack.append(float(stack.pop()) <= float(stack.pop()))
-        elif line == "GTE":
+        elif line == "GTEQ":
             stack.append(float(stack.pop()) >= float(stack.pop()))
         elif line == "EQ":
             stack.append(stack.pop() == stack.pop())
-        elif line == "NE":
+        elif line == "NEQ":
             stack.append(stack.pop() != stack.pop())
         elif line == "AND":
             stack.append(bool(stack.pop()) and bool(stack.pop()))
