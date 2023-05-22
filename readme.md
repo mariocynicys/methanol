@@ -78,4 +78,24 @@ It has compile times less than Rust and is memory safer as well.
 | LABEL | Defines a label that we can jump to |
 | JMP lbl | Unconditional jump to lbl |
 | JZ lbl | Jumps to lbl if the top of the stack is zero/false. This consumes the top of the stack |
-| JNZ lbl | Obvious |
+
+
+# Symbol Table Format
+
+## Contains:
+- Identifier Name
+- Definition Scope
+- Declaration Line
+- Is Used?
+- Is Initialized?
+- Is Constant?
+- Value (available for constants only)
+- Type (Function, Enum, String, etc...)
+
+## Example:
+| Id. Name | Scope | Dec. Line | Is Used | Is Init. | Is Const. | Value | Type |
+| ---- | ---- | ---- | ---- | ---- | ---- | ---- | ---- |
+| Meth | 0 | 72 | 1 | 0 | 0 | - | an enum |
+| a    | 0 | 7  | 1 | 1 | 0 | - | an integer |
+| c    | 0 | 9  | 1 | 1 | 1 | 5 | an integer |
+

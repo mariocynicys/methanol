@@ -9,5 +9,5 @@ rm parse.tab.* lex.yy.*                     && \
 
 # Return to the original directory.
 cd -                            && \
-cp src/methanol methanol.exe    && \
-chmod +x methanol.exe
+mv src/methanol compiler.exe    && \
+chmod +x compiler.exe

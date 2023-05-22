@@ -37,7 +37,7 @@ def main(file):
         subprocess.run(["bash", "build.sh"]).check_returncode()
 
     # Run the compiler.
-    subprocess.run(["./methanol.exe", file]).check_returncode()
+    subprocess.run(["./compiler.exe", file]).check_returncode()
 
     # Remove the symbol table file.
     os.remove(file + ".sym")
@@ -120,12 +120,7 @@ def main(file):
         elif line.startswith("JMP"):
             index = labels[line.split()[1]]
         elif line.startswith("JZ"):
-            expr = boolean_expr(stack.pop())
-            if expr == 0:
-                index = labels[line.split()[1]]
-        elif line.startswith("JNZ"):
-            expr = boolean_expr(stack.pop())
-            if expr != 0:
+            if boolean_expr(stack.pop()) == 0:
                 index = labels[line.split()[1]]
         elif line.startswith("CALL"):
             index_stack.append(index)

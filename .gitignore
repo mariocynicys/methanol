@@ -5,4 +5,4 @@ lex.yy.*
 parse.tab.*
 *.sym
 *.quad
-methanol.exe
+compiler.exe

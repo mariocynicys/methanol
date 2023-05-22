@@ -745,7 +745,7 @@ void log_symtable()
 {
     symlog << "\t\t\t\t\t\t\t==================" << endl;
     symlog << "L#" << yylineno << ":" << endl;
-    symlog << "Id. Name\t\tScope\tDec. Line\tIs Used\t\tIs Init.\tIs Const.\tValue" << endl;
+    symlog << "Id. Name\t\tScope\tDec. Line\tIs Used\t\tIs Init.\tIs Const.\tValue\tType" << endl;
     for (auto scope_map : symtable)
     {
         for (auto ident : scope_map)
@@ -770,6 +770,19 @@ void log_symtable()
             }
             else
                 symlog << "-";
+            symlog << "\t\t";
+
+            if (id->is_func)
+                symlog << "a function";
+            else if (id->is_enum_type)
+                symlog << "an enum";
+            else if (id->is_enum_variant)
+                symlog << id->enum_type;
+            else if (!id->is_func && !id->is_enum_type)
+                symlog << token_name(id->type);
+            else
+                symlog << "???";
+
             symlog << endl;
         }
     }
