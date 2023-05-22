@@ -54,7 +54,7 @@ std::map<int, int> lbls;
 #define q_endwhile() quadout << "\tJMP" << print_lbl - 1 << endl << "LABEL" << print_lbl << ":" << endl; q_end("while")
 
 #define q_repeat() lbl++; quadout << "LABEL" << print_lbl << ":" << endl
-#define q_endrepeat() quadout << "\tJNZ" << print_lbl << endl; q_end("repeat")
+#define q_endrepeat() quadout << "\tJZ" << print_lbl << endl; q_end("repeat")
 
 #define q_for() lbl++; quadout << "LABEL" << print_lbl << ":" << endl
 #define q_checkfor() quadout << "\tJZ" << print_lbl + 3 << endl << "\tJMP" << print_lbl + 2 << endl << "LABEL" << print_lbl + 1 << ":" << endl
