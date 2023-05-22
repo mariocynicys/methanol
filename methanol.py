@@ -37,7 +37,7 @@ def main(file):
         subprocess.run(["bash", "build.sh"]).check_returncode()
 
     # Run the compiler.
-    subprocess.run(["./methanol.exe", file])
+    subprocess.run(["./methanol.exe", file]).check_returncode()
 
     # Remove the symbol table file.
     os.remove(file + ".sym")

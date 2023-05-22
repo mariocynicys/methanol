@@ -327,6 +327,15 @@ struct Expression
         }
         else if (op == DIV)
         {
+            // Division by zero crashes the compiler, so guard against that.
+            if (other->get_num() == 0.0)
+            {
+                if (other->type == INTEGER)
+                    other->value.integer = 1;
+                else if (other->type == DOUBLE)
+                    other->value.real = 1.0;
+            }
+
             if (this->type == INTEGER && other->type == INTEGER) // No conversion needed.
                 this->value.integer /= other->value.integer;
             else if (this->type == DOUBLE && other->type == DOUBLE) // No conversion needed.
