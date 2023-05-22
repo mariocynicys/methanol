@@ -1,0 +1,8 @@
+str func(int wire, str voltage) {
+    print(voltage);
+    print(wire > 20);
+    return voltage;
+}
+
+
+int x = func(3, "high");

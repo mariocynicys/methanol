@@ -1,0 +1,26 @@
+// x has never been used
+int x = 5;
+
+{
+    // y has never been used
+    int y = 9;
+}
+
+// this func has never been used
+int func() {
+    int mimi = 20; // mimi has never been used
+    return 0;
+}
+
+// this func has never been used
+int better_func(int y) { // the parameter y has never been used
+    return 0;
+}
+
+// no warning, used below
+int new_func() {
+    return 389;
+}
+
+// z has never been used
+int z = new_func();

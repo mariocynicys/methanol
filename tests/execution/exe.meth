@@ -1,0 +1,73 @@
+// this test is to be executed to make sure that the compilation output is correct.
+// more of an e2e test.
+
+int check_eq(int x, int y, str check_name) {
+    print(check_name);
+    if (x != y) {
+        print("Failed!");
+    } else {
+        print("Succeeded!");
+    }
+    return 0;
+}
+
+int failed(str check_name) {
+    return check_eq(0, 1, check_name);
+}
+
+int success(str check_name) {
+    return check_eq(0, 0, check_name);
+}
+
+int x = 7;
+while (x < 20) {
+    x = x + 1;
+}
+
+check_eq(x, 20, "x is 20");
+
+
+for (int i = 0; i < x; i = i + 3) {
+    if (i == 18) {
+        success("i is 18");
+    }
+    if (i == 16) {
+        failed("this branch is unreachable, i not multiple of 3");
+    }
+    if (i == 21) {
+        failed("this branch is unreachable, i isn't less than x (20)");
+    }
+}
+
+switch (x) {
+    case 1: {
+        failed("case 1 shouldn't be reachable");
+    }
+    case 4: {
+        failed("are you kidding me");
+    }
+    case 20: {
+        success("case 20 was reached");
+    }
+    default: {
+        failed("default shouldn't be visited since case 20 matches");
+    }
+}
+
+switch (x) {
+    case 1: {
+        failed("case 1 shouldn't be reachable");
+    }
+    default: {
+        success("default was reached in the absence of a matching branch");
+    }
+}
+
+int y = x + 17;
+const int c = 150;
+
+repeat {
+    y = y + 7;
+} until (y > c);
+
+check_eq(y, 156, "y is 156");

@@ -1,6 +1,5 @@
 import os
 import sys
-import shutil
 import subprocess
 
 
@@ -22,6 +21,12 @@ def boolean_expr(expr):
     else:
         return float(expr)
 
+def to_expr(expr):
+    if expr[0] == '"':
+        return expr[1:-1]
+    # `boolean_expr` actually handles numbers as well.
+    return boolean_expr(expr)
+
 def panic(msg):
     print("Error: " + msg)
     exit(1)
@@ -29,9 +34,7 @@ def panic(msg):
 def main(file):
     # Build the compiler if it doesn't exist.
     if not os.path.exists("methanol.exe"):
-        subprocess.run(["bash", "src/build.sh"])
-        shutil.copyfile("src/methanol", "methanol.exe")
-        os.chmod("methanol.exe", 0o755)
+        subprocess.run(["bash", "build.sh"]).check_returncode()
 
     # Run the compiler.
     subprocess.run(["./methanol.exe", file])
@@ -72,7 +75,7 @@ def main(file):
         elif line.startswith("PUSH"):
             to_push = line.split(maxsplit=1)[1]
             if is_expr(to_push):
-                stack.append(to_push)
+                stack.append(to_expr(to_push))
             else:
                 if variables.get(to_push) is None:
                     panic("Variable " + to_push + " is being used without being initialized.")
@@ -83,26 +86,27 @@ def main(file):
             variables[line.split()[1]] = stack.pop()
         elif line == "PLUS":
             stack.append(float(stack.pop()) + float(stack.pop()))
+        # NOTE(MINUS, DIV, LT, GT, ...): stack[-2] is the first operand & stack[-1] is the second. Popping happens in reverse order.
         elif line == "MINUS":
-            stack.append(float(stack.pop()) - float(stack.pop()))
+            stack.append(-float(stack.pop()) + float(stack.pop()))
         elif line == "MULT":
             stack.append(float(stack.pop()) * float(stack.pop()))
         elif line == "DIV":
-            first = float(stack.pop())
             second = float(stack.pop())
+            first = float(stack.pop())
             if second == 0:
                 panic("Division by zero.")
             stack.append(first / second)
         elif line == "NEG":
             stack.append(-float(stack.pop()))
         elif line == "LT":
-            stack.append(float(stack.pop()) < float(stack.pop()))
-        elif line == "GT":
             stack.append(float(stack.pop()) > float(stack.pop()))
+        elif line == "GT":
+            stack.append(float(stack.pop()) < float(stack.pop()))
         elif line == "LTEQ":
-            stack.append(float(stack.pop()) <= float(stack.pop()))
-        elif line == "GTEQ":
             stack.append(float(stack.pop()) >= float(stack.pop()))
+        elif line == "GTEQ":
+            stack.append(float(stack.pop()) <= float(stack.pop()))
         elif line == "EQ":
             stack.append(stack.pop() == stack.pop())
         elif line == "NEQ":

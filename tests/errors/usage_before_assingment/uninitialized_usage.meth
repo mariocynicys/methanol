@@ -1,0 +1,17 @@
+int x;
+
+// this comes out as a warning
+// we are considering here that the runner will supply a default value or choose to throw an exception
+int y = x;
+
+
+int xx;
+
+int cc = 29;
+
+if (cc < 8) {
+    xx = 89;
+}
+
+// no warning here. because xx MIGHT have been assigned. since we are not sure, it's the programmers responsibility.
+int yy = xx;

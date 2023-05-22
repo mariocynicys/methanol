@@ -1,0 +1,5 @@
+enum miky [mimi, btoot, ghandi];
+
+miky x = miky.mimi;
+
+miky y = miky.raining;

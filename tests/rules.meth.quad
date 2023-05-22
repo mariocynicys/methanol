@@ -51,7 +51,7 @@ LABEL s0_l5:
 	PUSH v_a0
 	PUSH 20
 	GT
-	JNZ s0_l5
+	JZ s0_l5
 /* repeat statement */
 
 

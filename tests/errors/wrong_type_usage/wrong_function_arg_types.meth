@@ -1,0 +1,8 @@
+int func(int x, str y) {
+    print(y);
+    return x + 4;
+}
+
+
+
+func(4, false);

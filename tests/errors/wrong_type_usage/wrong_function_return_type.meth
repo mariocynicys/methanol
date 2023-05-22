@@ -1,0 +1,13 @@
+// this should fail since one of the return paths might return a wrong type.
+
+str func(int x, str y, int z) {
+    print(y);
+    log branch = true;
+    if (branch) {
+        // return an integer, baaaaaaadz
+        return x + 4 + z;
+    } else {
+        // return a str, good
+        return "correct return type";
+    }
+}
