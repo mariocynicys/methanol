@@ -110,7 +110,7 @@ function_declaration:
     ;
 
 typed_parameter_list:
-      typed_parameter_list ',' type IDENTIFIER      { $$ = $1->append($3); declare_identifier(func_param_identifier($4, $3)); q_popv($4); }
+      type IDENTIFIER ',' typed_parameter_list      { $$ = $4->prepend($1); declare_identifier(func_param_identifier($2, $1)); q_popv($2);}
     | type IDENTIFIER                               { $$ = new TypeList($1); declare_identifier(func_param_identifier($2, $1)); q_popv($2); }
     |                                               { $$ = new TypeList(); }
     ;

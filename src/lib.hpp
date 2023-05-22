@@ -34,9 +34,9 @@ ofstream quadout;
 void abort()
 {
     symlog.close();
-    symlog.open(fout + ".sym");
     quadout.close();
-    quadout.open(fout + ".quad");
+    remove((fout + ".sym").c_str());
+    remove((fout + ".quad").c_str());
     exit(1);
 }
 
@@ -83,6 +83,12 @@ struct TypeList
     TypeList *append(yytokentype item)
     {
         list.push_back(item);
+        return this;
+    }
+
+    TypeList *prepend(yytokentype item)
+    {
+        list.insert(list.begin(), item);
         return this;
     }
 };
