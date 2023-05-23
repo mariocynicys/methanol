@@ -778,10 +778,8 @@ void log_symtable()
                 symlog << "an enum";
             else if (id->is_enum_variant)
                 symlog << id->enum_type;
-            else if (!id->is_func && !id->is_enum_type)
-                symlog << token_name(id->type);
             else
-                symlog << "???";
+                symlog << token_name(id->type);
 
             symlog << endl;
         }

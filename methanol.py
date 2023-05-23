@@ -4,6 +4,7 @@ import subprocess
 
 
 def is_expr(expr):
+    """Returns True if the given string is an immediate value, False otherwise."""
     return (
         # Strings, negative numbers, and fractions.
         expr[0] in ['"', '-', '.'] or
@@ -13,19 +14,20 @@ def is_expr(expr):
         expr[0].isdigit()
     )
 
-def boolean_expr(expr):
-    if expr == "true":
-        return True
-    elif expr == "false":
-        return False
-    else:
-        return float(expr)
-
 def to_expr(expr):
+    """Converts a string representing an immediate value to a pythonic object."""
+    # Strings
     if expr[0] == '"':
         return expr[1:-1]
-    # `boolean_expr` actually handles numbers as well.
-    return boolean_expr(expr)
+    # True and False
+    elif expr in ["true", "false"]:
+        return {"true": True, "false": False}[expr]
+    # Floats
+    elif '.' in expr:
+        return float(expr)
+    # Integers
+    else:
+        return int(expr)
 
 def panic(msg):
     print("Error: " + msg)
@@ -33,7 +35,7 @@ def panic(msg):
 
 def main(file):
     # Build the compiler if it doesn't exist.
-    if not os.path.exists("methanol.exe"):
+    if not os.path.exists("compiler.exe"):
         subprocess.run(["bash", "build.sh"]).check_returncode()
 
     # Run the compiler.
@@ -66,8 +68,10 @@ def main(file):
             pass
         elif line.startswith(("LABEL", "DEF")):
             pass
-        elif line.startswith(("INT2REAL", "REAL2INT")):
-            pass
+        elif line == "INT2REAL":
+            stack.append(float(stack.pop()))
+        elif line == "REAL2INT":
+            stack.append(int(stack.pop()))
         elif line == "POP":
             stack.pop()
         elif line == "PRINT":
@@ -85,42 +89,46 @@ def main(file):
         elif line.startswith("POP"):
             variables[line.split()[1]] = stack.pop()
         elif line == "PLUS":
-            stack.append(float(stack.pop()) + float(stack.pop()))
+            stack.append(stack.pop() + stack.pop())
         # NOTE(MINUS, DIV, LT, GT, ...): stack[-2] is the first operand & stack[-1] is the second. Popping happens in reverse order.
         elif line == "MINUS":
-            stack.append(-float(stack.pop()) + float(stack.pop()))
+            stack.append(-stack.pop() + stack.pop())
         elif line == "MULT":
-            stack.append(float(stack.pop()) * float(stack.pop()))
+            stack.append(stack.pop() * stack.pop())
         elif line == "DIV":
-            second = float(stack.pop())
-            first = float(stack.pop())
+            second = stack.pop()
+            first = stack.pop()
             if second == 0:
                 panic("Division by zero.")
-            stack.append(first / second)
+            # Note that both operands gonna be of the same type anyways (int or float).
+            if isinstance(first, int):
+                stack.append(first // second)
+            else:
+                stack.append(first / second)
         elif line == "NEG":
-            stack.append(-float(stack.pop()))
+            stack.append(-stack.pop())
         elif line == "LT":
-            stack.append(float(stack.pop()) > float(stack.pop()))
+            stack.append(stack.pop() > stack.pop())
         elif line == "GT":
-            stack.append(float(stack.pop()) < float(stack.pop()))
+            stack.append(stack.pop() < stack.pop())
         elif line == "LTEQ":
-            stack.append(float(stack.pop()) >= float(stack.pop()))
+            stack.append(stack.pop() >= stack.pop())
         elif line == "GTEQ":
-            stack.append(float(stack.pop()) <= float(stack.pop()))
+            stack.append(stack.pop() <= stack.pop())
         elif line == "EQ":
             stack.append(stack.pop() == stack.pop())
         elif line == "NEQ":
             stack.append(stack.pop() != stack.pop())
         elif line == "AND":
-            stack.append(bool(stack.pop()) and bool(stack.pop()))
+            stack.append(stack.pop() and stack.pop())
         elif line == "OR":
-            stack.append(bool(stack.pop()) or bool(stack.pop()))
+            stack.append(stack.pop() or stack.pop())
         elif line == "NOT":
-            stack.append(not bool(stack.pop()))
+            stack.append(not stack.pop())
         elif line.startswith("JMP"):
             index = labels[line.split()[1]]
         elif line.startswith("JZ"):
-            if boolean_expr(stack.pop()) == 0:
+            if stack.pop() == 0:
                 index = labels[line.split()[1]]
         elif line.startswith("CALL"):
             index_stack.append(index)
